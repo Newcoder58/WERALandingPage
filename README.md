@@ -2,6 +2,8 @@
 
 A responsive landing page for WERA, an outfit planner for university students. Built with Next.js, React and TypeScript. The wardrobe imagery, scroll story, interactive sample outfits, SEO metadata, optional GA4 events, app embed slot, and feedback form are included.
 
+Vercel Web Analytics is included in the root layout for page views. Enable Web Analytics in the Vercel project dashboard and deploy the latest commit to begin collecting visits. This is separate from the optional GA4 integration.
+
 ## Deploy to Vercel
 
 Import this GitHub repository into Vercel. Framework Preset: **Next.js**. Root Directory: repository root. Build Command: `npm run build`. No custom Vercel configuration is required for the landing page.
