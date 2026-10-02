@@ -810,3 +810,108 @@
     transition: none;
   }
 }
+
+.tutorial {
+  border: 1px solid #d7ddcf;
+  border-radius: 22px;
+  background: #faf9f4;
+  color: #263127;
+  padding: 28px;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  box-shadow: 0 24px 100px #14221730;
+}
+.tutorial::backdrop {
+  background: #19291d66;
+  backdrop-filter: blur(6px);
+}
+.tutorialTop,
+.tutorialBottom,
+.tutorialBottom > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.tutorialTop > span {
+  font-size: 9px;
+  letter-spacing: 1.6px;
+}
+.tutorialArt {
+  height: 180px;
+  margin: 22px 0;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 85% 20%, #d3dfbf, transparent 60%), #e8eddf;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  overflow: hidden;
+}
+.tutorialArt > span {
+  font-family: Georgia, serif;
+  font-size: 135px;
+  line-height: 1;
+  color: #718365;
+  letter-spacing: -10px;
+}
+.tutorialArt > i {
+  font-style: normal;
+  font-size: 10px;
+  line-height: 1.8;
+  letter-spacing: 2px;
+  transform: rotate(-8deg);
+}
+.tutorial h2 {
+  font-family: Georgia, serif;
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 1.15;
+  margin: 12px 0;
+}
+.tutorial > p:not(.eyebrow) {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #63705f;
+}
+.tutorialBottom {
+  margin-top: 26px;
+}
+.tutorialBottom > span {
+  display: flex;
+  gap: 7px;
+}
+.tutorialBottom i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d7ddcf;
+}
+.tutorialBottom i.currentDot {
+  width: 23px;
+  border-radius: 5px;
+  background: #718365;
+}
+.tutorial button {
+  cursor: pointer;
+}
+@media (max-width: 450px) {
+  .tutorial {
+    padding: 22px;
+  }
+  .tutorialArt {
+    height: 140px;
+  }
+  .tutorialArt > span {
+    font-size: 110px;
+  }
+  .tutorial h2 {
+    font-size: 27px;
+  }
+  .tutorialTop > span {
+    font-size: 8px;
+    letter-spacing: 1px;
+  }
+}

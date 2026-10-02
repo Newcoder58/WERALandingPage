@@ -12,15 +12,11 @@ const compiled = ts.transpileModule(source, {
     module: ts.ModuleKind.ES2022,
   },
 }).outputText;
-const {
-  matchOutfit,
-  missingPieces,
-  validSelection,
-  validClothing,
-  sampleCloset,
-} = await import(
-  "data:text/javascript;base64," + Buffer.from(compiled).toString("base64")
-);
+const { matchOutfit, missingPieces, validSelection, validClothing } =
+  await import(
+    "data:text/javascript;base64," + Buffer.from(compiled).toString("base64")
+  );
+import { sampleCloset } from "./closet-fixtures.mjs";
 const preferences = {
   occasion: "Work",
   weather: "Mild",

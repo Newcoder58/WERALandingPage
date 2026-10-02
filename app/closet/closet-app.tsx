@@ -13,7 +13,6 @@ import {
   occasions,
   matchOutfit,
   missingPieces,
-  sampleCloset,
   validClothing,
   type Clothing,
   type Outfit,
@@ -45,11 +44,7 @@ function Photo({ item }: { item: Clothing }) {
     />
   ) : (
     <span className={styles.noPhoto}>
-      {item.category === "Shoes"
-        ? "↗"
-        : item.category === "Accessory"
-          ? "◯"
-          : "◇"}
+      No photo added
       <small>{item.category}</small>
     </span>
   );
@@ -104,6 +99,11 @@ export default function ClosetApp({
 }) {
   const [items, setItems] = useState<Clothing[]>([]);
   const [saved, setSaved] = useState<Outfit[]>([]);
+  const [tutorialDone, setTutorialDone] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const tutorial = useRef<HTMLDialogElement>(null);
+  const appRoot = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [ai, setAi] = useState(false);
   const [imageAi, setImageAi] = useState(false);
@@ -131,10 +131,27 @@ export default function ClosetApp({
         if (active && state) {
           setItems(
             Array.isArray(state.items)
-              ? state.items.filter(validClothing).slice(0, 24)
+              ? state.items
+                  .filter(validClothing)
+                  .filter((i) => !i.sample)
+                  .slice(0, 24)
               : [],
           );
-          setSaved(Array.isArray(state.saved) ? state.saved.slice(0, 8) : []);
+          setSaved(
+            Array.isArray(state.saved)
+              ? state.saved
+                  .filter(
+                    (look) =>
+                      !look.itemIds?.some((id) => id.startsWith("sample-")) &&
+                      !look.pieces?.some(
+                        (piece) =>
+                          piece.sample || piece.image.startsWith("/pieces/"),
+                      ),
+                  )
+                  .slice(0, 8)
+              : [],
+          );
+          setTutorialDone(state.tutorialDone === true);
         }
       })
       .catch(() => {
@@ -144,7 +161,13 @@ export default function ClosetApp({
           );
       })
       .finally(() => {
-        if (active) setReady(true);
+        if (active) {
+          try {
+            if (localStorage.getItem("wera-tour-v1") === "done")
+              setTutorialDone(true);
+          } catch {}
+          setReady(true);
+        }
       });
     fetch("/api/closet")
       .then((r) => r.json())
@@ -162,18 +185,60 @@ export default function ClosetApp({
   useEffect(() => {
     if (!ready) return;
     const timer = setTimeout(() => {
-      writeCloset({ items, saved }).catch(() =>
+      writeCloset({ items, saved, tutorialDone }).catch(() =>
         setStorageError(
           "Storage is full or unavailable. Keep this page open, and download any outfit images you want to keep.",
         ),
       );
     }, 250);
     return () => clearTimeout(timer);
-  }, [items, saved, ready]);
+  }, [items, saved, ready, tutorialDone]);
   useEffect(() => {
     if (draft && !editor.current?.open) editor.current?.showModal();
     if (!draft && editor.current?.open) editor.current.close();
   }, [draft]);
+  useEffect(() => {
+    if (!ready || tutorialDone) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setTutorialOpen(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    if (appRoot.current) observer.observe(appRoot.current);
+    return () => observer.disconnect();
+  }, [ready, tutorialDone]);
+  useEffect(() => {
+    if (tutorialOpen && !tutorial.current?.open) tutorial.current?.showModal();
+    if (!tutorialOpen && tutorial.current?.open) tutorial.current.close();
+  }, [tutorialOpen]);
+  function finishTutorial() {
+    try {
+      localStorage.setItem("wera-tour-v1", "done");
+    } catch {}
+    setTutorialDone(true);
+    setTutorialOpen(false);
+  }
+  const tutorialSteps = [
+    {
+      title: "Start with what’s already yours.",
+      text: "Upload a clear photo of each piece. You can ask AI to identify it, then check the details. Start with a top, bottom and shoes — or a one-piece and shoes.",
+      label: "01 / YOUR REAL CLOSET",
+    },
+    {
+      title: "Dress for your kind of day.",
+      text: "Pick your occasion, weather and mood. WERA builds a combination from your own pieces and explains why they work together.",
+      label: "02 / ONE LESS DECISION",
+    },
+    {
+      title: "Keep a look you love.",
+      text: "Save your outfit for another day. With photos on every selected piece, you can also create an AI flat-lay preview. Details may differ; your original photos stay alongside it. Everything is saved in this browser.",
+      label: "03 / MAKE IT YOURS",
+    },
+  ];
   function event(name: string, params: Record<string, string> = {}) {
     track(name, {
       source: standalone ? "closet_app" : "landing_app",
@@ -341,7 +406,7 @@ export default function ClosetApp({
   const formality = ["Casual", "Smart casual", "Formal"];
   const Heading = standalone ? "h1" : "h2";
   return (
-    <div className={styles.app} aria-busy={Boolean(busy)}>
+    <div ref={appRoot} className={styles.app} aria-busy={Boolean(busy)}>
       <header className={styles.header}>
         <div>
           <p className={styles.eyebrow}>YOUR PIECES. NEW POSSIBILITIES.</p>
@@ -375,7 +440,16 @@ export default function ClosetApp({
             onKeyDown={(event) => {
               const tabs = ["closet", "outfit", "saved"] as const;
               const index = tabs.indexOf(value);
-              const next = event.key === "ArrowRight" ? (index + 1) % 3 : event.key === "ArrowLeft" ? (index + 2) % 3 : event.key === "Home" ? 0 : event.key === "End" ? 2 : -1;
+              const next =
+                event.key === "ArrowRight"
+                  ? (index + 1) % 3
+                  : event.key === "ArrowLeft"
+                    ? (index + 2) % 3
+                    : event.key === "Home"
+                      ? 0
+                      : event.key === "End"
+                        ? 2
+                        : -1;
               if (next < 0) return;
               event.preventDefault();
               setTab(tabs[next]);
@@ -455,20 +529,6 @@ export default function ClosetApp({
                     >
                       Add without a photo
                     </button>
-                    <div className={styles.samplePrompt}>
-                      <span>Just exploring?</span>
-                      <button
-                        className={styles.quiet}
-                        onClick={() => {
-                          setItems(sampleCloset.map((i) => ({ ...i })));
-                          setMessage(
-                            "Sample wardrobe loaded. Replace these pieces with your own when you’re ready.",
-                          );
-                        }}
-                      >
-                        Try the sample closet ↗
-                      </button>
-                    </div>
                   </div>
                 ) : (
                   <>
@@ -481,9 +541,6 @@ export default function ClosetApp({
                         >
                           <div className={styles.piecePhoto}>
                             <Photo item={item} />
-                            {item.sample && (
-                              <span className={styles.sampleBadge}>SAMPLE</span>
-                            )}
                           </div>
                           <h4>{item.name}</h4>
                           <p>
@@ -590,7 +647,9 @@ export default function ClosetApp({
                       <button
                         className={styles.secondary}
                         onClick={generateImage}
-                        disabled={Boolean(busy)}
+                        disabled={
+                          Boolean(busy) || selected.some((item) => !item.image)
+                        }
                       >
                         {busy === "image"
                           ? "Creating image…"
@@ -603,7 +662,7 @@ export default function ClosetApp({
                       <a
                         className={styles.quiet}
                         href={outfit.image}
-                        download="wera-outfit.png"
+                        download={`wera-outfit.${outfit.image.startsWith("data:image/jpeg") ? "jpg" : outfit.image.startsWith("data:image/webp") ? "webp" : "png"}`}
                       >
                         Download image ↓
                       </a>
@@ -611,8 +670,9 @@ export default function ClosetApp({
                   </div>
                   {imageAi && (
                     <p className={styles.hint}>
-                      Creating an image sends only the selected pieces and their
-                      photos to Google. Usually takes 20–60 seconds.
+                      {selected.some((item) => !item.image)
+                        ? "Add a photo to every selected piece to create an image."
+                        : "Creating an AI preview sends the selected photos to Cloudflare. Details may differ; compare with your originals."}
                     </p>
                   )}
                 </div>
@@ -799,7 +859,7 @@ export default function ClosetApp({
             )}
             <p className={styles.hint}>
               {ai
-                ? "AI styling sends clothing details and your preferences to Google. Photos are sent only when you ask to identify a piece or create an image."
+                ? "AI styling sends clothing details and your preferences to Google. Photos go to Google only for identification and to Cloudflare only when you create an image."
                 : "Closet matching uses your pieces’ color, pattern, style, formality and warmth. AI features become available when the site owner connects Google."}
             </p>
           </aside>
@@ -821,12 +881,81 @@ export default function ClosetApp({
       <footer className={styles.footer}>
         <span>YOUR CLOSET. REIMAGINED.</span>
         <span>No account. Your closet stays in this browser.</span>
+        <button
+          className={styles.quiet}
+          onClick={() => {
+            setTutorialStep(0);
+            setTutorialOpen(true);
+          }}
+        >
+          Quick tour ↗
+        </button>
         {!standalone && (
           <a href="/closet" target="_blank" rel="noopener noreferrer">
             Open the app ↗
           </a>
         )}
       </footer>
+      <dialog
+        ref={tutorial}
+        className={styles.tutorial}
+        aria-labelledby="wera-tutorial-title"
+        aria-describedby="wera-tutorial-description"
+        onCancel={finishTutorial}
+        onClose={() => {
+          if (tutorialOpen) finishTutorial();
+        }}
+      >
+        <div className={styles.tutorialTop}>
+          <span>WERA / A LITTLE INTRODUCTION</span>
+          <button className={styles.quiet} onClick={finishTutorial}>
+            Skip intro
+          </button>
+        </div>
+        <div className={styles.tutorialArt} aria-hidden="true">
+          <span>{String(tutorialStep + 1).padStart(2, "0")}</span>
+          <i>
+            YOUR PIECES.
+            <br />
+            NEW POSSIBILITIES.
+          </i>
+        </div>
+        <p className={styles.eyebrow}>{tutorialSteps[tutorialStep].label}</p>
+        <h2 id="wera-tutorial-title">{tutorialSteps[tutorialStep].title}</h2>
+        <p id="wera-tutorial-description">{tutorialSteps[tutorialStep].text}</p>
+        <div className={styles.tutorialBottom}>
+          <span aria-label={`Step ${tutorialStep + 1} of 3`}>
+            {tutorialSteps.map((_, index) => (
+              <i
+                key={index}
+                className={index === tutorialStep ? styles.currentDot : ""}
+              />
+            ))}
+          </span>
+          <div>
+            {tutorialStep > 0 && (
+              <button
+                className={styles.quiet}
+                onClick={() => setTutorialStep((step) => step - 1)}
+              >
+                Back
+              </button>
+            )}
+            <button
+              className={styles.primary}
+              onClick={() => {
+                if (tutorialStep < 2) setTutorialStep((step) => step + 1);
+                else {
+                  finishTutorial();
+                  setTab("closet");
+                }
+              }}
+            >
+              {tutorialStep < 2 ? "Next →" : "Open my closet →"}
+            </button>
+          </div>
+        </div>
+      </dialog>
       <input
         ref={upload}
         type="file"

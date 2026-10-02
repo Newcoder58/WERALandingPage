@@ -1,5 +1,9 @@
 import type { Clothing, Outfit } from "./closet";
-export type ClosetState = { items: Clothing[]; saved: Outfit[] };
+export type ClosetState = {
+  items: Clothing[];
+  saved: Outfit[];
+  tutorialDone?: boolean;
+};
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("wera-closet", 1);

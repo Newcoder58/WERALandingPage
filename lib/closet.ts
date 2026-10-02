@@ -67,7 +67,6 @@ export function validClothing(value: unknown): value is Clothing {
     v.warmth <= 3 &&
     typeof v.image === "string" &&
     (v.image === "" ||
-      /^\/pieces\/[a-z]+\.webp$/.test(v.image) ||
       /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v.image)) &&
     v.image.length <= 650000
   );
@@ -188,89 +187,3 @@ export function matchOutfit(
     createdAt: new Date().toISOString(),
   };
 }
-export const sampleCloset: Clothing[] = [
-  {
-    id: "sample-shirt",
-    name: "White cotton shirt",
-    category: "Top",
-    color: "White",
-    pattern: "Solid",
-    style: "Classic",
-    formality: 2,
-    warmth: 1,
-    image: "/pieces/shirt.webp",
-    sample: true,
-  },
-  {
-    id: "sample-knit",
-    name: "Sage knit sweater",
-    category: "Top",
-    color: "Sage",
-    pattern: "Solid",
-    style: "Relaxed",
-    formality: 1,
-    warmth: 3,
-    image: "/pieces/sweater.webp",
-    sample: true,
-  },
-  {
-    id: "sample-jeans",
-    name: "Straight-leg jeans",
-    category: "Bottom",
-    color: "Blue denim",
-    pattern: "Solid",
-    style: "Casual",
-    formality: 1,
-    warmth: 2,
-    image: "/pieces/jeans.webp",
-    sample: true,
-  },
-  {
-    id: "sample-trousers",
-    name: "Black tailored trousers",
-    category: "Bottom",
-    color: "Black",
-    pattern: "Solid",
-    style: "Classic",
-    formality: 3,
-    warmth: 2,
-    image: "/pieces/trousers.webp",
-    sample: true,
-  },
-  {
-    id: "sample-sneakers",
-    name: "Ivory sneakers",
-    category: "Shoes",
-    color: "Ivory",
-    pattern: "Solid",
-    style: "Sporty",
-    formality: 1,
-    warmth: 1,
-    image: "/pieces/sneakers.webp",
-    sample: true,
-  },
-  {
-    id: "sample-loafers",
-    name: "Black loafers",
-    category: "Shoes",
-    color: "Black",
-    pattern: "Solid",
-    style: "Classic",
-    formality: 3,
-    warmth: 1,
-    image: "/pieces/loafers.webp",
-    sample: true,
-  },
-  {
-    id: "sample-bag",
-    name: "Brown shoulder bag",
-    category: "Accessory",
-    color: "Brown",
-    pattern: "Solid",
-    style: "Classic",
-    formality: 2,
-    warmth: 1,
-    image: "/pieces/bag.webp",
-    sample: true,
-  },
-];
