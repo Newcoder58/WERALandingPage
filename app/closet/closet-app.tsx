@@ -106,7 +106,6 @@ export default function ClosetApp({
   const appRoot = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [ai, setAi] = useState(false);
-  const [imageAi, setImageAi] = useState(false);
   const [tab, setTab] = useState<"closet" | "outfit" | "saved">("closet");
   const [filter, setFilter] = useState("All");
   const [draft, setDraft] = useState<Clothing | null>(null);
@@ -174,7 +173,6 @@ export default function ClosetApp({
       .then((r) => {
         if (active) {
           setAi(r.aiAvailable === true);
-          setImageAi(r.imageAvailable === true);
         }
       })
       .catch(() => {});
@@ -225,17 +223,17 @@ export default function ClosetApp({
   const tutorialSteps = [
     {
       title: "Start with what’s already yours.",
-      text: "Upload a clear photo of each piece. You can ask AI to identify it, then check the details. Start with a top, bottom and shoes — or a one-piece and shoes.",
+      text: "Upload a clear photo of each piece. WERA identifies it automatically; review the details and save. Start with a top, bottom and shoes — or a one-piece and shoes.",
       label: "01 / YOUR REAL CLOSET",
     },
     {
       title: "Dress for your kind of day.",
-      text: "Pick your occasion, weather and mood. WERA builds a combination from your own pieces and explains why they work together.",
+      text: "Pick your occasion, weather and mood. WERA picks from your own pieces and creates an outfit image.",
       label: "02 / ONE LESS DECISION",
     },
     {
       title: "Keep a look you love.",
-      text: "Save your outfit for another day. With photos on every selected piece, you can also create an AI flat-lay preview. Details may differ; your original photos stay alongside it. Everything is saved in this browser.",
+      text: "Save your outfit for another day. With photos on every selected piece, an AI flat-lay preview is created automatically. Details may differ; your original photos stay alongside it. Everything is saved in this browser.",
       label: "03 / MAKE IT YOURS",
     },
   ];
@@ -254,22 +252,32 @@ export default function ClosetApp({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    const previous = draft;
     setBusy("photo");
     setError("");
+    setEditorError("");
     try {
       const image = await photoData(file);
-      setEditorError("");
-      setDraft((current) =>
-        current
-          ? { ...current, image, sample: undefined }
-          : { ...blank(), image },
-      );
+      const current = { ...(previous || blank()), image, sample: undefined };
+      setDraft(current);
+      setBusy("analyze");
+      try {
+        const result = await api({ action: "analyze", image });
+        setDraft({ ...current, ...result.details });
+      } catch (error) {
+        setEditorError(
+          error instanceof Error
+            ? error.message
+            : "Photo analysis did not finish. Retry analysis below.",
+        );
+      }
     } catch (error) {
-      setError(
+      const message =
         error instanceof Error
           ? error.message
-          : "This photo could not be read.",
-      );
+          : "This photo could not be read.";
+      if (previous) setEditorError(message);
+      else setError(message);
     } finally {
       setBusy("");
     }
@@ -339,14 +347,27 @@ export default function ClosetApp({
         });
         next = response.outfit;
       } else next = matchOutfit(items, preferences, outfit?.itemIds || []);
-      setOutfit({
-        ...next,
-        pieces: items
-          .filter((i) => next.itemIds.includes(i.id))
-          .map((i) => ({ ...i })),
-      });
+      const pieces = items
+        .filter((i) => next.itemIds.includes(i.id))
+        .map((i) => ({ ...i }));
+      const look = { ...next, pieces };
+      setOutfit(look);
       setTab("outfit");
       event("outfit_generated", { occasion: preferences.occasion });
+      if (pieces.some((piece) => !piece.image)) {
+        setError(
+          "Add a photo to every selected piece so WERA can create your outfit image.",
+        );
+        return;
+      }
+      setBusy("image");
+      const response = await api({
+        action: "image",
+        items: pieces,
+        itemIds: look.itemIds,
+        preferences,
+      });
+      setOutfit({ ...look, image: response.image });
     } catch (error) {
       setError(
         error instanceof Error
@@ -512,7 +533,8 @@ export default function ClosetApp({
                     <h3>Your closet has the answer.</h3>
                     <p>
                       Start with a top, a bottom and shoes — or a one-piece and
-                      shoes. Add a photo or describe each piece.
+                      shoes. Upload photos to identify your pieces automatically
+                      and create outfit images.
                     </p>
                     <button
                       className={styles.primary}
@@ -578,9 +600,11 @@ export default function ClosetApp({
                     disabled={Boolean(busy) || Boolean(missing.length)}
                     onClick={() => generate()}
                   >
-                    {busy === "outfit"
-                      ? "Finding your outfit…"
-                      : "Create my outfit"}
+                    {busy === "image"
+                      ? "Creating your image…"
+                      : busy === "outfit"
+                        ? "Finding your outfit…"
+                        : "Create my outfit"}
                   </button>
                   {Boolean(missing.length) && (
                     <p>Add {missing.join(" and ")} first.</p>
@@ -597,6 +621,16 @@ export default function ClosetApp({
                     </p>
                     <h3>{outfit.title}</h3>
                   </div>
+                  {busy === "image" && (
+                    <div className={styles.imageProgress} role="status">
+                      <span
+                        className={styles.imageSpinner}
+                        aria-hidden="true"
+                      />
+                      <h4>Creating your outfit image…</h4>
+                      <p>Arranging your own pieces into a flat-lay preview.</p>
+                    </div>
+                  )}
                   {outfit.image ? (
                     <>
                       <Image
@@ -613,6 +647,7 @@ export default function ClosetApp({
                       </p>
                     </>
                   ) : null}
+                  <p className={styles.eyebrow}>YOUR ORIGINAL PIECES</p>
                   <div className={styles.outfitBoard}>
                     {selected.map((item) => (
                       <div key={item.id}>
@@ -621,11 +656,12 @@ export default function ClosetApp({
                       </div>
                     ))}
                   </div>
-                  <div className={styles.explanation}>
+                  <details className={styles.explanation}>
+                    <summary>Why this outfit works</summary>
                     <p className={styles.eyebrow}>WHY IT WORKS</p>
                     <p>{outfit.reason}</p>
                     <p className={styles.tip}>{outfit.tips}</p>
-                  </div>
+                  </details>
                   <div className={styles.resultActions}>
                     <button
                       className={styles.primary}
@@ -643,7 +679,7 @@ export default function ClosetApp({
                     >
                       Try another combination
                     </button>
-                    {imageAi && (
+                    {
                       <button
                         className={styles.secondary}
                         onClick={generateImage}
@@ -657,7 +693,7 @@ export default function ClosetApp({
                             ? "Recreate outfit image"
                             : "Create an outfit image ✧"}
                       </button>
-                    )}
+                    }
                     {outfit.image && (
                       <a
                         className={styles.quiet}
@@ -668,13 +704,13 @@ export default function ClosetApp({
                       </a>
                     )}
                   </div>
-                  {imageAi && (
+                  {
                     <p className={styles.hint}>
                       {selected.some((item) => !item.image)
                         ? "Add a photo to every selected piece to create an image."
                         : "Creating an AI preview sends the selected photos to Cloudflare. Details may differ; compare with your originals."}
                     </p>
-                  )}
+                  }
                 </div>
               ))}
             {tab === "saved" && (
@@ -839,9 +875,11 @@ export default function ClosetApp({
               disabled={Boolean(busy) || Boolean(missing.length)}
               onClick={() => generate()}
             >
-              {busy === "outfit"
-                ? "Finding your outfit…"
-                : "Create my outfit →"}
+              {busy === "image"
+                ? "Creating your image…"
+                : busy === "outfit"
+                  ? "Finding your outfit…"
+                  : "Create my outfit →"}
             </button>
             {Boolean(missing.length) && (
               <p className={styles.requirement}>
@@ -859,7 +897,7 @@ export default function ClosetApp({
             )}
             <p className={styles.hint}>
               {ai
-                ? "AI styling sends clothing details and your preferences to Google. Photos go to Google only for identification and to Cloudflare only when you create an image."
+                ? "Uploading a photo sends it to Google for automatic identification. Creating an outfit sends the selected photos to Cloudflare for its image."
                 : "Closet matching uses your pieces’ color, pattern, style, formality and warmth. AI features become available when the site owner connects Google."}
             </p>
           </aside>
@@ -1009,7 +1047,7 @@ export default function ClosetApp({
                 >
                   {draft.image ? "Choose another photo" : "Add a photo"}
                 </button>
-                {ai && draft.image.startsWith("data:") && (
+                {draft.image.startsWith("data:") && (
                   <button
                     type="button"
                     className={styles.primary}
@@ -1018,13 +1056,15 @@ export default function ClosetApp({
                   >
                     {busy === "analyze"
                       ? "Looking at your piece…"
-                      : "Identify with AI ✧"}
+                      : "Re-analyze photo ✧"}
                   </button>
                 )}
                 <p className={styles.hint}>
-                  {ai
-                    ? "AI identification sends this photo to Google. Check and edit the suggested details before saving."
-                    : "Describe your piece using the fields alongside it. A photo is optional."}
+                  {busy === "analyze"
+                    ? "Analyzing your photo and filling in the details…"
+                    : draft.image
+                      ? "Your photo is analyzed automatically. Review the filled-in details and save. Photo analysis sends this image to Google."
+                      : "Upload a clothing photo to fill in these details automatically. You can also enter them manually."}
                 </p>
               </div>
               <fieldset

@@ -822,6 +822,53 @@
   overflow-y: auto;
   box-shadow: 0 24px 100px #14221730;
 }
+
+.imageProgress {
+  min-height: 320px;
+  border: 1px solid #d7ddcf;
+  border-radius: 12px;
+  background: #edf0e6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.imageProgress h4 {
+  font-family: Georgia, serif;
+  font-weight: 400;
+  font-size: 26px;
+  margin: 18px 0 8px;
+}
+.imageProgress p {
+  font-size: 13px;
+  color: #63705f;
+}
+.imageSpinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid #cdd6c6;
+  border-top-color: #526749;
+  border-radius: 50%;
+  animation: imageTurn 1s linear infinite;
+}
+.explanation summary {
+  cursor: pointer;
+  font-size: 14px;
+  padding-bottom: 12px;
+}
+@keyframes imageTurn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .imageSpinner {
+    animation: none;
+  }
+}
 .tutorial::backdrop {
   background: #19291d66;
   backdrop-filter: blur(6px);
